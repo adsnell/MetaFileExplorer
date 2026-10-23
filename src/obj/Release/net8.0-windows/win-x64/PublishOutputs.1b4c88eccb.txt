@@ -1,0 +1,5 @@
+C:\MetaFileExplorer\build\MetaFileExplorer.exe
+C:\MetaFileExplorer\build\MetaFileExplorer.dll
+C:\MetaFileExplorer\build\MetaFileExplorer.deps.json
+C:\MetaFileExplorer\build\MetaFileExplorer.runtimeconfig.json
+C:\MetaFileExplorer\build\MetaFileExplorer.pdb
