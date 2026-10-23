@@ -232,7 +232,7 @@ namespace MetaFileExplorer
             }
         }
 
-        private void TxtSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        private async void TxtSearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (TxtSearchBox == null) return;
             string query = TxtSearchBox.Text.Trim().ToLower();
@@ -242,20 +242,120 @@ namespace MetaFileExplorer
                 FilesGrid.ItemsSource = currentFolderItems;
                 ThumbnailsList.ItemsSource = currentFolderItems;
                 StatusCount.Content = $"{currentFolderItems.Count} items";
+                return;
             }
-            else
-            {
-                var filtered = currentFolderItems.Where(x => 
-                    x.Name.ToLower().Contains(query) || 
-                    x.Title.ToLower().Contains(query) || 
-                    x.Tags.ToLower().Contains(query) || 
-                    x.Authors.ToLower().Contains(query)
-                ).ToList();
 
-                FilesGrid.ItemsSource = filtered;
-                ThumbnailsList.ItemsSource = filtered;
-                StatusCount.Content = $"{filtered.Count} items (filtered)";
-            }
+            StatusCount.Content = "Searching recursively...";
+            
+            var searchResults = await System.Threading.Tasks.Task.Run(() =>
+            {
+                var results = new List<FileItemViewModel>();
+                
+                // Safe recursive directory walker that ignores permission errors on locked folders
+                var folderStack = new Stack<string>();
+                folderStack.Push(currentPath);
+
+                while (folderStack.Count > 0)
+                {
+                    string dir = folderStack.Pop();
+
+                    // 1. Check current directory name match
+                    try
+                    {
+                        var dirInfo = new DirectoryInfo(dir);
+                        if (!dir.Equals(currentPath, StringComparison.OrdinalIgnoreCase) && dirInfo.Name.ToLower().Contains(query))
+                        {
+                            results.Add(new FileItemViewModel
+                            {
+                                Name = dirInfo.Name,
+                                FullPath = dirInfo.FullName,
+                                Size = "<DIR>",
+                                LastModified = dirInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm"),
+                                IsFolder = true,
+                                CardColor = "#FFA726",
+                                Title = string.Empty,
+                                Subject = string.Empty,
+                                Authors = string.Empty,
+                                Tags = string.Empty,
+                                Comments = string.Empty,
+                                Rating = string.Empty,
+                                HasThumbnail = false,
+                                ThumbnailImage = null
+                            });
+                        }
+                    }
+                    catch { }
+
+                    // 2. Get files in current directory safely
+                    try
+                    {
+                        foreach (var file in Directory.GetFiles(dir))
+                        {
+                            FileInfo fileInfo;
+                            try { fileInfo = new FileInfo(file); } catch { continue; }
+
+                            string ext = fileInfo.Extension.TrimStart('.').ToUpper();
+                            string fileName = fileInfo.Name.ToLower();
+
+                            bool matches = fileName.Contains(query) || ext.Equals(query.TrimStart('.'), StringComparison.OrdinalIgnoreCase);
+
+                            if (query.StartsWith("ext:"))
+                            {
+                                string targetExt = query.Substring(4).Trim().ToUpper();
+                                matches = ext.Equals(targetExt);
+                            }
+                            else if (query.StartsWith("type:"))
+                            {
+                                string targetType = query.Substring(5).Trim().ToUpper();
+                                matches = ext.Equals(targetType);
+                            }
+
+                            if (matches)
+                            {
+                                var vm = new FileItemViewModel
+                                {
+                                    Name = fileInfo.Name,
+                                    FullPath = fileInfo.FullName,
+                                    Size = FormatFileSize(fileInfo.Length),
+                                    LastModified = fileInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm"),
+                                    IsFolder = false,
+                                    FileExtension = ext,
+                                    CardColor = "#42A5F5",
+                                    Title = string.Empty,
+                                    Subject = string.Empty,
+                                    Authors = string.Empty,
+                                    Tags = string.Empty,
+                                    Comments = string.Empty,
+                                    Rating = string.Empty,
+                                    HasThumbnail = false,
+                                    ThumbnailImage = null
+                                };
+
+                                // Safely generate thumbnails for JPG and PNG without freezing
+                                try { ExtractEmbeddedMetadataAndThumbnail(file, vm); } catch { }
+                                results.Add(vm);
+                            }
+                        }
+                    }
+                    catch { }
+
+                    // 3. Push subdirectories to stack safely
+                    try
+                    {
+                        foreach (var subDir in Directory.GetDirectories(dir))
+                        {
+                            folderStack.Push(subDir);
+                        }
+                    }
+                    catch { }
+                }
+
+                return results;
+            });
+
+            FilesGrid.ItemsSource = searchResults;
+            ThumbnailsList.ItemsSource = searchResults;
+            StatusCount.Content = $"{searchResults.Count} items found (recursive search)";
         }
 
         private void ExtractEmbeddedMetadataAndThumbnail(string filePath, FileItemViewModel vm)

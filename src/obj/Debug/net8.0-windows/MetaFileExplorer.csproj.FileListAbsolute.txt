@@ -17,3 +17,4 @@ C:\MetafileExplorer\src\obj\Debug\net8.0-windows\refint\MetaFileExplorer.dll
 C:\MetafileExplorer\src\obj\Debug\net8.0-windows\MetaFileExplorer.pdb
 C:\MetafileExplorer\src\obj\Debug\net8.0-windows\MetaFileExplorer.genruntimeconfig.cache
 C:\MetafileExplorer\src\obj\Debug\net8.0-windows\ref\MetaFileExplorer.dll
+C:\MetaFileExplorer\src\obj\Debug\net8.0-windows\MetaFileExplorer.sourcelink.json
